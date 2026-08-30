@@ -11,6 +11,7 @@ import AgentRegistry, { agentEvents } from '@deepseek-ai/dsh-agent'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import AttachmentStore from '@deepseek-ai/dsh-attachment'
 import LlmRuntime, { LlmAdapter, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
+import LlmProviderGate from '@deepseek-ai/dsh-llm-provider-gate'
 import type {
   GenerateOptions, LlmCallConfig, LlmCallConfigAdapterDefaults, LlmModelInfo,
   LlmModelReasoningInfo, LlmProviderInfo, LlmResolvedModelInfo, StreamChunk,
@@ -594,6 +595,61 @@ describe('Web session model selection', () => {
     expect(currentSelection(ctx, sessionId)).toEqual({ provider: 'deleted-gateway', model: 'deleted-model' })
     expect(catalog.groups.flatMap(group => group.models.map(model => `${group.id}/${model.id}`)))
       .not.toContain('deleted-gateway/deleted-model')
+    await ctx.fiber.dispose()
+  })
+
+  it('leaves disabled providers out of the catalog groups and routable set', async () => {
+    const { ctx } = await harness()
+    ctx.llm.registerAdapter(['acme-gateway'], new CatalogAdapter('Acme Gateway', [
+      { provider: 'acme-gateway', id: 'acme-large', name: 'Acme Large' },
+    ]))
+    await ctx.plugin(LlmProviderGate, { disabled: ['deepseek-official', 'empty'] })
+    createSessionTestRemote(ctx, {
+      defaultModelSelection: () => ({ provider: 'deepseek-official', model: 'deepseek-chat' }),
+      cwd: '/tmp',
+    })
+
+    const catalog = await buildModelCatalog(ctx)
+    expect(catalog.groups.map(group => group.id)).toEqual(['acme-gateway'])
+    expect(catalog.routableProviders).toEqual([
+      'broken', 'metadata-broken', 'remote-rejected', 'duplicate', 'acme-gateway',
+    ])
+    expect(catalog.disabledProviders).toEqual(['deepseek-official', 'empty'])
+    // The stored default passes through; matching no group is what makes the
+    // composer seat prompt for a selection.
+    expect(catalog.default).toEqual({ provider: 'deepseek-official', model: 'deepseek-chat' })
+    await ctx.fiber.dispose()
+  })
+
+  it('refuses prompts and selections targeting a disabled provider', async () => {
+    const { ctx, sessionId } = await harness()
+    await ctx.plugin(LlmProviderGate, { disabled: ['deepseek-official'] })
+    const remote = createSessionTestRemote(ctx, {
+      defaultModelSelection: () => ({ provider: 'deepseek-official', model: 'deepseek-chat' }),
+      cwd: '/tmp',
+    })
+
+    const refusedPrompt = await remote.prompt(promptRequest({
+      sessionId, mode: 'queue' as const, content: [{ type: 'text' as const, text: 'hi' }],
+    }))
+    expect(refusedPrompt).toMatchObject({
+      ok: false,
+      error: { code: 'model-unavailable', details: { provider: 'deepseek-official', model: 'deepseek-chat' } },
+    })
+    expect((refusedPrompt as { error: { message: string } }).error.message).toContain('disabled')
+
+    const refusedSelection = await remote.selectModel(request({
+      sessionId, provider: 'deepseek-official', model: 'deepseek-reasoner',
+    }))
+    expect(refusedSelection).toMatchObject({
+      ok: false,
+      error: { code: 'model-unavailable', details: { provider: 'deepseek-official', model: 'deepseek-reasoner' } },
+    })
+
+    // An enabled provider still selects and prompts normally.
+    expectValue(await remote.selectModel(request({
+      sessionId, provider: 'duplicate', model: 'same',
+    })))
     await ctx.fiber.dispose()
   })
 

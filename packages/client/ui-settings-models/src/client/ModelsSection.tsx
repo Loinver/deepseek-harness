@@ -12,9 +12,9 @@
  * re-renders from pushed invalidations or the post-apply reload.
  */
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
-import { Button, IconPlusOutline16, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, IconPlusOutline16, Modal, Switch } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
 // Type-only: pulls this package's SlotMap merge (the two Models child slots).
 import type {} from './slot-contract.ts'
@@ -25,6 +25,14 @@ import type { SettingsSchemaOperations } from './schema-operations.ts'
 import { ProviderEditor, type ProviderEditorProps } from './ProviderEditor.tsx'
 import type { en } from './locales.ts'
 import styles from './ModelsSection.module.css'
+import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
+
+/** Local snapshot shape for the provider gate (mirror of the host gate settings). */
+interface GateSnapshot { disabled: readonly string[] }
+
+function readonlyStringArray(value: unknown): value is readonly string[] {
+  return Array.isArray(value) && value.every(item => typeof item === 'string')
+}
 
 /** Injected dependencies of {@link ModelsSection} (slot `inject`). */
 export interface ModelsSectionInjected {
@@ -40,6 +48,8 @@ export interface ModelsSectionInjected {
   schema: SettingsSchemaOperations
   /** Section copy. */
   t: (key: keyof typeof en) => string
+  /** Provider gate scope whose disabled set drives every row's toggle. Omitted when the gate plugin is not mounted. */
+  gateScope?: SettingsScope<Record<string, unknown>>
 }
 
 /** The child slots this section declares and dispatches (see ./slot-contract.ts). */
@@ -198,16 +208,19 @@ export function providerCopy(template: string, target: ProviderIdentity): string
  * @returns the section, or null while the shell has not injected yet.
  */
 export function ModelsSection(props: ModelsSectionProps): ReactNode {
-  const { controller, useSnapshot, api, schema, t, renderSlot } = props
+  const { controller, useSnapshot, api, schema, t, gateScope, renderSlot } = props
   if (
     controller === undefined || useSnapshot === undefined || api === undefined
     || schema === undefined || t === undefined
   ) return null
-  return <Loaded injected={{ controller, useSnapshot, api, schema, t }} renderSlot={renderSlot} />
+  return <Loaded injected={{
+    controller, useSnapshot, api, schema, t,
+    ...(gateScope !== undefined ? { gateScope } : {}),
+  }} renderSlot={renderSlot} />
 }
 
 function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderSlot: ModelsRenderSlot }): ReactNode {
-  const { controller, api, schema, t } = injected
+  const { controller, api, schema, t, gateScope } = injected
   const state = injected.useSnapshot(snapshot => snapshot)
   const [editing, setEditing] = useState<EditorTarget | undefined>(undefined)
   const [adding, setAdding] = useState(false)
@@ -217,6 +230,18 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
   const [savedTarget, setSavedTarget] = useState<ProviderIdentity | undefined>(undefined)
   const [declaring, setDeclaring] = useState(false)
   const [dismissedSetup, setDismissedSetup] = useState<ReadonlySet<string>>(() => new Set())
+  // Gate snapshot derives from the scope; refreshes are driven by mirror pushes.
+  const [gateSnapshot, setGateSnapshot] = useState<GateSnapshot>({ disabled: [] })
+  useEffect(() => {
+    if (gateScope === undefined) return
+    const resolve = (): void => {
+      const view = gateScope.getSnapshot().value
+      setGateSnapshot({ disabled: readonlyStringArray(view?.disabled) ? view.disabled : [] })
+    }
+    resolve()
+    return gateScope.subscribe(resolve)
+  }, [gateScope])
+  const [gateModal, setGateModal] = useState<{ provider: string; displayName: string } | undefined>(undefined)
 
   const announceSaved = (target: ProviderIdentity): void => {
     // Announced only once the refreshed directory is in the snapshot the
@@ -248,6 +273,26 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
     if (deleting) return
     setDeleteTarget(undefined)
     setDeleteFailure(undefined)
+  }
+
+  /**
+   * Queue one flip of a provider's disabled flag. Writes serialize behind one
+   * tail and read the scope snapshot after the previous write settles, so
+   * rapid toggles never drop a flip. The caller shows the confirm modal for
+   * the disable path before invoking this with nextDisabled true.
+   */
+  const gateWriteTail = useRef<Promise<void>>(Promise.resolve())
+  const toggleProviderGate = async (provider: string, nextDisabled: boolean): Promise<void> => {
+    if (gateScope === undefined) return
+    const run = gateWriteTail.current.then(async () => {
+      const current = gateScope.getSnapshot().value
+      const base = readonlyStringArray(current?.disabled) ? current.disabled : []
+      const next = nextDisabled ? [...base, provider].sort() : base.filter((id: string) => id !== provider)
+      await gateScope.mutate([{ op: 'set', path: ['disabled'], value: next }])
+    })
+    // A failed write must not wedge the tail; the next flip still runs.
+    gateWriteTail.current = run.catch(() => {})
+    return run
   }
 
   const confirmDelete = (): void => {
@@ -357,7 +402,9 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
           return (
             <li key={row.entry.provider} className={styles['rowCard']}>
               <div className={styles['rowHead']}>
-                <span className={styles['rowIdentity']}>
+                <span className={gateSnapshot.disabled.includes(row.entry.provider)
+                  ? `${styles['rowIdentity']} ${styles['disabled']}`
+                  : styles['rowIdentity']}>
                   <span className={styles['rowName']}>{row.entry.displayName}</span>
                   {/* Only the adapter can tell a hand-declared route from a
                       shipped one it also has a stored profile for, so the tag
@@ -421,6 +468,24 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
                     : null}
                 </span>
               </div>
+              {gateScope !== undefined
+                ? (
+                  <span className={styles['rowGate']}>
+                    <Switch
+                      checked={!gateSnapshot.disabled.includes(row.entry.provider)}
+                      label={t('disabledToggle')}
+                      disabled={!state.writable}
+                      onChange={() => {
+                        if (gateSnapshot.disabled.includes(row.entry.provider)) {
+                          void toggleProviderGate(row.entry.provider, false).catch(() => {})
+                          return
+                        }
+                        setGateModal({ provider: row.entry.provider, displayName: row.entry.displayName })
+                      }}
+                    />
+                  </span>
+                )
+                : null}
               {renderSlot(
                 'settings.models.provider-card',
                 { provider: row.entry, configured: row.configured, keyConfigured: keyConfiguredOf(row) },
@@ -577,6 +642,27 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
         )}
       >
         {deleteFailure === undefined ? null : <p className={styles['error']}>{deleteFailure}</p>}
+      </Modal>
+      <Modal
+        open={gateModal !== undefined}
+        onClose={() => { setGateModal(undefined) }}
+        title={gateModal === undefined ? '' : providerCopy(t('confirmDisableTitle'), gateModal)}
+        closeLabel={t('cancel')}
+        description={gateModal === undefined ? '' : t('confirmDisableDescription')}
+        footer={(
+          <>
+            <Button variant="outline" onClick={() => { setGateModal(undefined) }}>{t('cancel')}</Button>
+            <Button
+              variant="primary"
+              onClick={() => {
+                const p = gateModal
+                setGateModal(undefined)
+                void toggleProviderGate(p?.provider ?? '', true).catch(() => {})
+              }}
+            >{t('confirmDisableConfirm')}</Button>
+          </>
+        )}
+      >
       </Modal>
     </div>
   )

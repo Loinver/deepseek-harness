@@ -117,6 +117,14 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'Adapters register provider implementations; the loop and compaction call the provider-neutral stream service.',
   },
   {
+    key: 'llmProviderGate',
+    pkg: 'llm-provider-gate',
+    title: 'User-provider enable/disable gate',
+    mode: 'core',
+    consumers: ['api-session-controller', 'ui-settings-models'],
+    note: 'Stores a sorted disabled-route list in settings; enforces rejection on llm/stream and filters buildModelCatalog.',
+  },
+  {
     key: 'deepseekLlmApiExtensions',
     pkg: 'deepseek-llm-api-extensions',
     title: 'Official DeepSeek request extensions',

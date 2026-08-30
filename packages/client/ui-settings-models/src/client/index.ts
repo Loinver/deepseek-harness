@@ -6,7 +6,7 @@
  * Export discipline:
  * packages/client/AGENTS.md.
  */
-import type { Context as ClientContext } from '@deepseek-ai/cordis'
+import { Context as ClientContext } from '@deepseek-ai/cordis'
 // Type-only: pulls the shell's SlotMap merge (the 'settings.section' entry).
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
@@ -15,6 +15,11 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 // Type-only: pulls the ctx.remote merge and the forwarded-event key face
 // (settings/credentials invalidations ride the allowlist) into this program.
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
+// Non-type import for the gate scope; the client bundle-purity gate permits
+// this because the gate is a peer of this package, not a cross-bundle value.
+// Local constant; the actual namespace is defined in @deepseek-ai/dsh-llm-provider-gate.
+// Kept here to avoid pulling the host-only package into the client build graph.
+const LLM_PROVIDER_GATE_SETTINGS_NAMESPACE = 'llm-provider-gate'
 import { ModelsSection } from './ModelsSection.tsx'
 import type { ModelsSectionInjected } from './ModelsSection.tsx'
 import { DeepSeekOnboardingDialog } from './DeepSeekOnboardingDialog.tsx'
@@ -91,6 +96,7 @@ export function apply(ctx: ClientContext): void {
     api: wire,
     schema,
     t,
+    gateScope,
   })
   const deepSeekOnboardingInjected = (): DeepSeekOnboardingInjected => ({
     controller,
@@ -111,6 +117,13 @@ export function apply(ctx: ClientContext): void {
     t,
   })
 
+  // Gate scope: owns the disabled list across all provider rows. The toggle
+  // reads the scope snapshot for display and writes through it on each click.
+  type GateSettings = { disabled?: string[] }
+  const gateScope = ctx.settingsScope.bind<GateSettings>({
+    namespace: LLM_PROVIDER_GATE_SETTINGS_NAMESPACE,
+  })
+
   // Pushed invalidations converge every open surface without polling. The
   // settingsScope injection makes ui-settings activate first, and remote
   // dispatch preserves listener order; its listener therefore starts the
@@ -119,7 +132,7 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => {
     const refreshModels = (): void => { refreshIfLoaded(controller) }
     const disposers = [
-      ctx.remote.$on('settings/document-updated', () => { refreshModels() }),
+      ctx.remote.$on('settings/document-updated', refreshModels),
       ctx.remote.$on('credentials/reference-updated', refreshModels),
       ctx.remote.$on('llm/adapters-updated', refreshModels),
       ctx.on('connection/reset', refreshModels),
@@ -153,4 +166,5 @@ export function apply(ctx: ClientContext): void {
     order: 0,
     inject: deepSeekOnboardingInjected,
   }, DeepSeekOnboardingDialog))
+
 }

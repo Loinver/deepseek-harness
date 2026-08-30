@@ -1014,6 +1014,29 @@ stream(options: GenerateOptions): AsyncIterable<StreamChunk>
 
 Source: [`packages/llm/llm/src/index.ts`](../../packages/llm/llm/src/index.ts)
 
+<a id="ctxllmprovidergate--llmprovidergate"></a>
+
+### `ctx.llmProviderGate` — `LlmProviderGate`
+
+Owns the user-disabled provider set and rejects disabled requests on the `llm/stream` waterfall. The composition entry remains usable without a settings provider; when one is mounted, its user layer is read live.
+
+```ts cordis-catalog
+/**
+ * Read the disabled provider routes.
+ * @returns a detached set of disabled provider route ids.
+ */
+disabled(): ReadonlySet<string>
+
+/**
+ * Whether requests to a provider route are allowed.
+ * @param provider - the provider route id.
+ * @returns false exactly when the user disabled the route.
+ */
+isEnabled(provider: string): boolean
+```
+
+Source: [`packages/llm/llm-provider-gate/src/index.ts`](../../packages/llm/llm-provider-gate/src/index.ts)
+
 <a id="llm-events"></a>
 
 ### `llm/*` events

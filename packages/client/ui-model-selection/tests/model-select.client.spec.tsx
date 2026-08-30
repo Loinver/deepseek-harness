@@ -33,6 +33,7 @@ function state(overrides: Partial<ModelDirectoryState> = {}): ModelDirectoryStat
   return {
     current: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
     routable: true,
+    disabledProviders: [],
     groups: [{
       id: 'deepseek-official',
       name: 'DeepSeek',
@@ -198,6 +199,29 @@ describe('ModelSelect reasoning effort', () => {
     expect(toast.textContent).toContain('模型操作失败：model-unavailable: session already contains images')
     // The selection failure does not render the in-menu load strip (no Retry).
     expect(screen.queryByRole('button', { name: '重试' })).toBeNull()
+  })
+
+
+  it('shows the enable-provider hint instead of the empty state when every provider is disabled', () => {
+    const directory = createSnapshotStore<ModelDirectoryState>(state({
+      groups: [],
+      disabledProviders: ['x'],
+      status: 'ready',
+    }))
+    render(<ModelSelect
+      locked={false}
+      available
+      directory={directory}
+      load={vi.fn()}
+      select={vi.fn().mockResolvedValue(true)}
+      t={t}
+    />)
+
+    fireEvent.click(screen.getByRole('button', { name: /选择模型|当前/ }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /模型/ }))
+    expect(screen.getByText('请至少启用一个模型提供方以使用选择器。')).toBeTruthy()
+    // The all-disabled hint replaces the plain empty state, so no duplicate.
+    expect(screen.queryByText('没有可用的模型。')).toBeNull()
   })
 
   it('renders no Agent-bound control for an addressed subagent session', () => {

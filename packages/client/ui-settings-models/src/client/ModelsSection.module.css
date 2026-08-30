@@ -675,3 +675,17 @@ select.input {
   font-size: 13px;
   overflow-wrap: anywhere;
 }
+
+/* Provider gate toggle sits inline with the row actions; disable dims the
+   switch via the Switch component's own opacity but here we also dim the row
+   identity text when the provider is disabled by the gate. */
+.rowGate {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+}
+
+.rowIdentity.disabled {
+  opacity: 0.55;
+  text-decoration: line-through;
+}

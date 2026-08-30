@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import Schema from '@deepseek-ai/schemastery'
 import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
-import type { JsonValue, SettingsNamespaceView } from '@deepseek-ai/dsh-api-remotes/client'
+import type { JsonValue, SettingsNamespaceView, SettingsPathOpView } from '@deepseek-ai/dsh-api-remotes/client'
 import {
   ModelsSection, needsSetup, providerCopy, providerTargetLabel, removeProviderProfile,
 } from '../src/client/ModelsSection.tsx'
@@ -15,6 +15,9 @@ import {
 } from '../src/client/DeepSeekModelsEditor.tsx'
 import { apiKeyFailure } from '../src/client/apiKey.ts'
 import { SettingsDescribeMirror } from '@deepseek-ai/dsh-client-ui-settings/src/client/settings-mirror.ts'
+import { Context } from '@deepseek-ai/cordis'
+import { SettingsSchemaService } from '@deepseek-ai/dsh-client-ui-settings/src/client/schema.ts'
+import { SettingsScopeController } from '@deepseek-ai/dsh-client-ui-settings/src/client/settings-scope.ts'
 import { deriveKeyRef, ModelsSettingsStore } from '../src/client/store.ts'
 import type { ProviderRow } from '../src/client/store.ts'
 import { en } from '../src/client/locales.ts'
@@ -212,7 +215,50 @@ function cardSeatCalls(
     ])
 }
 
-async function mountFace(scripted: ReturnType<typeof scriptedFace>) {
+/** One fake gate scope over its own describe/mutate wire; the mirror must be loaded before mount. */
+function gateScopeFor(disabled: string[] = []) {
+  const gateSchema = JSON.parse(JSON.stringify(
+    Schema.object({ disabled: Schema.array(Schema.string()).default([]) }).toJSON(),
+  )) as JsonValue
+  const viewFor = (value: string[]): SettingsNamespaceView => ({
+    ns: 'llm-provider-gate',
+    schema: gateSchema,
+    value: { disabled: value },
+    base: { disabled: [] },
+    user: { disabled: value },
+    applies: 'live',
+    secrets: [],
+    revision: 1,
+  })
+  const wire = {
+    settings: {
+      describe: vi.fn(() => Promise.resolve(remoteOk({
+        writable: true, hasDocument: true, namespaces: [viewFor(disabled)],
+      }))),
+      mutate: vi.fn((_ns: string, ops: SettingsPathOpView[]) => {
+        const set = ops.find(op => op.op === 'set')
+        const next = set?.op === 'set' && Array.isArray(set.value) ? set.value as string[] : disabled
+        return Promise.resolve(remoteOk(viewFor(next)))
+      }),
+    },
+  }
+  const mirror = new SettingsDescribeMirror(wire as never)
+  const scope = new SettingsScopeController<{ disabled?: string[] }>(
+    wire as never,
+    { namespace: 'llm-provider-gate' },
+    mirror,
+    'host',
+    new SettingsSchemaService(new Context()),
+  )
+  return { mirror, scope, mutate: wire.settings.mutate }
+}
+
+type GateHarness = ReturnType<typeof gateScopeFor>
+
+async function mountFace(
+  scripted: ReturnType<typeof scriptedFace>,
+  gate?: GateHarness,
+) {
   const { face, update, mutate, set, unset } = scripted
   const mirror = new SettingsDescribeMirror(face as never)
   const controller = new ModelsSettingsStore(face as unknown as WireFace, settingsSchema, mirror)
@@ -224,10 +270,11 @@ async function mountFace(scripted: ReturnType<typeof scriptedFace>) {
     api: face as never,
     schema: settingsSchema,
     t,
+    ...(gate === undefined ? {} : { gateScope: gate.scope }),
     renderSlot: renderSlot as unknown as ModelsSectionProps['renderSlot'],
   }
   const view = render(<ModelsSection {...injected} />)
-  return { view, face, update, mutate, set, unset, controller, mirror, renderSlot }
+  return { view, face, update, mutate, set, unset, controller, mirror, renderSlot, gate }
 }
 
 async function mountSection(overrides: Parameters<typeof scriptedFace>[0] = {}) {
@@ -1440,6 +1487,52 @@ describe('ModelsSection', () => {
       { settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'openai'] },
     )
     expect(failure).toBe('connection lost')
+  })
+})
+
+describe('ModelsSection provider gate', () => {
+  it('renders a per-row toggle and confirms before disabling a provider', async () => {
+    const gate = gateScopeFor()
+    await gate.mirror.load()
+    await mountFace(scriptedFace(), gate)
+    const switches = screen.getAllByRole('switch', { name: en.disabledToggle })
+    expect(switches.length).toBeGreaterThanOrEqual(2)
+    const row = screen.getByText('openai').closest('li')
+    if (row === null) throw new Error('openai row not rendered')
+    const toggle = within(row).getByRole('switch', { name: en.disabledToggle })
+    expect(toggle.getAttribute('aria-checked')).toBe('true')
+    fireEvent.click(toggle)
+    // Disabling is destructive, so the confirm modal precedes the write.
+    expect(screen.getByText(en.confirmDisableConfirm)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: en.confirmDisableConfirm }))
+    await waitFor(() => {
+      expect(gate.mutate).toHaveBeenCalledWith('llm-provider-gate', [
+        { op: 'set', path: ['disabled'], value: ['openai'] },
+      ], expect.any(Number))
+    })
+    // The mirror folds the write, so the row now renders as disabled.
+    await waitFor(() => {
+      expect(within(row).getByRole('switch', { name: en.disabledToggle }).getAttribute('aria-checked'))
+        .toBe('false')
+    })
+  })
+
+  it('re-enables a provider immediately without a confirm modal', async () => {
+    const gate = gateScopeFor(['openai'])
+    await gate.mirror.load()
+    await mountFace(scriptedFace(), gate)
+    const row = screen.getByText('openai').closest('li')
+    if (row === null) throw new Error('openai row not rendered')
+    const toggle = within(row).getByRole('switch', { name: en.disabledToggle })
+    expect(toggle.getAttribute('aria-checked')).toBe('false')
+    fireEvent.click(toggle)
+    // Re-enabling is the harmless direction, so no modal interrupts it.
+    expect(screen.queryByText(en.confirmDisableConfirm)).toBeNull()
+    await waitFor(() => {
+      expect(gate.mutate).toHaveBeenCalledWith('llm-provider-gate', [
+        { op: 'set', path: ['disabled'], value: [] },
+      ], expect.any(Number))
+    })
   })
 })
 

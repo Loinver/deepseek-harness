@@ -29,6 +29,8 @@ export interface ModelDirectoryState {
   groups: readonly ModelProviderGroup[]
   /** Provider-local failures from the last load; usable groups stay usable. */
   failures: readonly ModelCatalogFailure[]
+  /** Provider routes the user disabled (empty when the gate is not mounted). */
+  disabledProviders: readonly string[]
   /** Lifecycle of the in-flight operation. */
   status: 'idle' | 'loading' | 'ready' | 'selecting' | 'error'
   /** Whole-request or selection failure text; null when none. */
@@ -39,7 +41,7 @@ export interface ModelDirectoryState {
 export class ModelDirectory {
   /** The shared snapshot both entries render from (uSES-safe store). */
   readonly store: SnapshotStore<ModelDirectoryState> = createSnapshotStore<ModelDirectoryState>({
-    current: null, routable: null, groups: [], failures: [], status: 'idle', error: null,
+    current: null, routable: null, groups: [], failures: [], disabledProviders: [], status: 'idle', error: null,
   })
 
   /** Latest selection operation wins; an older response never overwrites a newer one. */
@@ -154,6 +156,7 @@ export class ModelDirectory {
         routable: null,
         groups: [],
         failures: [],
+        disabledProviders: [],
         status: catalog.status === 'error' ? 'error' : 'loading',
         error: catalog.error,
       })
@@ -166,6 +169,7 @@ export class ModelDirectory {
       routable: catalog.value.routableProviders.includes(current.provider),
       groups: catalog.value.groups,
       failures: catalog.value.failures,
+      disabledProviders: catalog.value.disabledProviders,
       status: this.store.getSnapshot().status === 'selecting'
         ? 'selecting'
         : 'ready',

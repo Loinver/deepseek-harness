@@ -3491,6 +3491,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
             routableProviders: ['deepseek-official', 'openai', 'acme-gateway'],
             groups: fixtureModelGroups(),
             failures: [],
+            disabledProviders: [],
           },
         })
         case 'llm/listProviders': return Promise.resolve({

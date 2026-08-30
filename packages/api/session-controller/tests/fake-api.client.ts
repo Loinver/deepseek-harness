@@ -218,6 +218,7 @@ export class FakeApiClient {
             routableProviders: [],
             groups: [],
             failures: [],
+            disabledProviders: [],
           },
         }),
         search: (payload, signal) => {

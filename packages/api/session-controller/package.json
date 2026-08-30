@@ -89,6 +89,7 @@
     "@deepseek-ai/dsh-invariants": "workspace:^",
     "@deepseek-ai/dsh-jobs": "workspace:^",
     "@deepseek-ai/dsh-llm": "workspace:^",
+    "@deepseek-ai/dsh-llm-provider-gate": "workspace:^",
     "@deepseek-ai/dsh-native-command": "workspace:^",
     "@deepseek-ai/dsh-scope": "workspace:^",
     "@deepseek-ai/dsh-session": "workspace:^",
@@ -106,6 +107,7 @@
   },
   "peerDependenciesMeta": {
     "@deepseek-ai/dsh-jobs": { "optional": true },
+    "@deepseek-ai/dsh-llm-provider-gate": { "optional": true },
     "@deepseek-ai/dsh-session-persistence": { "optional": true },
     "@deepseek-ai/dsh-session-projection-cache": { "optional": true }
   },
@@ -123,6 +125,7 @@
     "@deepseek-ai/dsh-invariants": "workspace:^",
     "@deepseek-ai/dsh-jobs": "workspace:^",
     "@deepseek-ai/dsh-llm": "workspace:^",
+    "@deepseek-ai/dsh-llm-provider-gate": "workspace:^",
     "@deepseek-ai/dsh-native-command": "workspace:^",
     "@deepseek-ai/dsh-permission-presets": "workspace:^",
     "@deepseek-ai/dsh-scope": "workspace:^",

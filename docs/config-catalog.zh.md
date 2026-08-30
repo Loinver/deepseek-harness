@@ -1306,6 +1306,20 @@ export type PiAiThinkingFormat = NonNullable<OpenAICompletionsCompat['thinkingFo
 
 来源：[`packages/llm/llm-pi-ai/src/config.ts:213`](../packages/llm/llm-pi-ai/src/config.ts)
 
+<a id="deepseek-aidsh-llm-provider-gate"></a>
+
+## \`@deepseek-ai/dsh-llm-provider-gate\`
+
+```ts config-catalog
+/** Optional deployment base for the preference. */
+export interface Config {
+  /** Initial disabled routes inherited when the user document does not override it. */
+  disabled?: string[]
+}
+```
+
+来源：[\`packages/llm/llm-provider-gate/src/index.ts:43\`](../packages/llm/llm-provider-gate/src/index.ts)
+
 <a id="deepseek-aidsh-llm-replay"></a>
 
 ## `@deepseek-ai/dsh-llm-replay`

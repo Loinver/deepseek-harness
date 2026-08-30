@@ -119,6 +119,13 @@ export class SessionCommandController {
     const agent = await this.resolveAgent(request.sessionId)
     return this.agents.serializeImageAdmission(agent, async () => {
       try {
+        if (providerDisabled(this.ctx, request.provider)) {
+          reject(
+            'model-unavailable',
+            `provider "${request.provider}" is disabled; enable it in the model settings first`,
+            { provider: request.provider, model: request.model },
+          )
+        }
         const resolved = await this.ctx.llm.resolveCallConfig({
           provider: request.provider,
           model: request.model,
@@ -293,6 +300,13 @@ export class SessionCommandController {
     }
     const agent = await this.resolveAgent(request.sessionId)
     const selection = this.agents.selectionFor(agent).current
+    if (providerDisabled(this.ctx, selection.provider)) {
+      reject(
+        'model-unavailable',
+        `provider "${selection.provider}" is disabled; enable it in the model settings or select another model`,
+        { provider: selection.provider, model: selection.model },
+      )
+    }
     if (!routeServed(this.ctx, selection.provider)) {
       reject(
         'model-unavailable',
@@ -594,4 +608,13 @@ function canonicalClientTimeZone(value: string): string | undefined {
 
 function routeServed(ctx: Context, provider: string): boolean {
   return ctx.llm.listProviders().some(entry => entry.id === provider)
+}
+
+/**
+ * Whether the user disabled the provider route through the provider gate.
+ * Without a mounted gate every route counts as enabled.
+ */
+function providerDisabled(ctx: Context, provider: string): boolean {
+  const gate = ctx.get('llmProviderGate') as { isEnabled(p: string): boolean } | undefined
+  return gate !== undefined && !gate.isEnabled(provider)
 }

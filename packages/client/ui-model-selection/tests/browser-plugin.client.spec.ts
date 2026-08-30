@@ -74,6 +74,7 @@ async function bench() {
           routableProviders: routable ? ['deepseek-official'] : [],
           groups: GROUPS,
           failures: [],
+          disabledProviders: [],
         },
       })
     },

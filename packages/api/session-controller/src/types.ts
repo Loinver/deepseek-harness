@@ -142,6 +142,8 @@ export interface ModelCatalog {
   readonly routableProviders: readonly string[]
   readonly groups: readonly ModelProviderGroup[]
   readonly failures: readonly ModelCatalogFailure[]
+  /** Provider routes the user disabled through the provider gate; sorted lexicographically. */
+  readonly disabledProviders: readonly string[]
 }
 
 /** One client-requested mutation of a still-pending queue item. */

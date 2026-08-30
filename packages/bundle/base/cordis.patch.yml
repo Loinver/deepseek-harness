@@ -499,3 +499,9 @@
     # choice.
     - id: llm-deepseek
       name: '@deepseek-ai/dsh-llm-deepseek'
+
+    # The user-owned provider on/off gate. Disabled routes are hidden from model
+    # catalogs and rejected on the `llm/stream` waterfall before adapter dispatch;
+    # the disabled set lives in the `llm-provider-gate:` settings section.
+    - id: llm-provider-gate
+      name: '@deepseek-ai/dsh-llm-provider-gate'

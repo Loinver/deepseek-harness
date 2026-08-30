@@ -7,6 +7,7 @@ const catalog = (model: string): ModelCatalog => ({
   routableProviders: ['fixture'],
   groups: [{ id: 'fixture', name: 'Fixture', models: [{ id: model, name: model }] }],
   failures: [],
+  disabledProviders: [],
 })
 
 function directory(models: () => Promise<unknown>): ModelCatalogDirectory {

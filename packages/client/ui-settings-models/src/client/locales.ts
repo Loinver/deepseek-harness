@@ -99,6 +99,13 @@ export const en = {
   onboardingSave: 'Save and continue',
   onboardingSaving: 'Saving…',
   keyRequired: 'Enter an API key to continue.',
+  disabledToggle: 'Enable or disable the provider for model requests',
+  confirmDisableTitle: 'Disable {provider}?',
+  confirmDisableDescription: 'Requests will stop using this provider once disabled. If it is serving your current model, choose another model in the model selector to continue.',
+  confirmDisableConfirm: 'Disable anyway',
+  toastDisabled: 'Disabled {provider}.',
+  toastEnabled: 'Enabled {provider}.',
+  allDisabledHint: 'Please enable at least one model provider to use the selector.',
 }
 
 /** The settings.models namespace key union. */
@@ -203,4 +210,11 @@ export const zh: { [Key in keyof typeof en]: string } = {
   onboardingSave: '保存并继续',
   onboardingSaving: '保存中…',
   keyRequired: '请输入 API 密钥后继续。',
+  disabledToggle: '启用或禁用该提供方，禁用后它将不参与模型请求',
+  confirmDisableTitle: '禁用 {provider}？',
+  confirmDisableDescription: '禁用后，请求将不再使用该提供方。如果它正在提供你当前的模型，请在模型选择器中选择其他模型以继续。',
+  confirmDisableConfirm: '仍要禁用',
+  toastDisabled: '已禁用 {provider}。',
+  toastEnabled: '已启用 {provider}。',
+  allDisabledHint: '请至少启用一个模型提供方以使用选择器。',
 }

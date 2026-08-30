@@ -279,6 +279,14 @@ export function ModelSelect(
                   <button type="button" className={css.retry} onClick={reload}>{t('retry')}</button>
                 </div>
               ))}
+              {state.groups.length === 0 && state.disabledProviders.length > 0
+                ? (
+                  <div className={css.hint}>
+                    <span>{t('allDisabledHint')}</span>
+                    <button type="button" className={css.retry} onClick={reload}>{t('retry')}</button>
+                  </div>
+                )
+                : null}
               <div className={clsx(css.groups, 'scrollable')}>
                 {state.groups.map((group) => {
                   const headingId = `${id}-${group.id}`
@@ -312,7 +320,7 @@ export function ModelSelect(
                   )
                 })}
               </div>
-              {state.status === 'ready' && choices.length === 0 && (
+              {state.status === 'ready' && choices.length === 0 && state.disabledProviders.length === 0 && (
                 <div className={css.empty}>{t('empty.models')}</div>
               )}
             </>

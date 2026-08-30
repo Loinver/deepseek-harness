@@ -1181,6 +1181,25 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'llmProviderGate',
+    summary: 'Owns the user-disabled provider set and rejects disabled requests on the `llm/stream` waterfall.',
+    description: 'Owns the user-disabled provider set and rejects disabled requests on the `llm/stream` waterfall. The composition entry remains usable without a settings provider; when one is mounted, its user layer is read live.',
+    methods: [
+      {
+        signature: 'disabled(): ReadonlySet<string>',
+        description: 'Read the disabled provider routes.',
+        parameters: [],
+        returns: 'a detached set of disabled provider route ids.',
+      },
+      {
+        signature: 'isEnabled(provider: string): boolean',
+        description: 'Whether requests to a provider route are allowed.',
+        parameters: [{ name: 'provider', description: 'the provider route id.' }],
+        returns: 'false exactly when the user disabled the route.',
+      },
+    ],
+  },
+  {
     key: 'lsp',
     summary: 'The LSP capability seam (`ctx.lsp`).',
     description: 'The LSP capability seam (`ctx.lsp`). Owns provider registration/selection and normalized query execution; exposes exactly the four operations and no protocol escape hatch.',
@@ -4436,7 +4455,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ModelCatalog',
-    declaration: 'export interface ModelCatalog {\n    readonly default: ModelSelection;\n    readonly routableProviders: readonly string[];\n    readonly groups: readonly ModelProviderGroup[];\n    readonly failures: readonly ModelCatalogFailure[];\n}',
+    declaration: 'export interface ModelCatalog {\n    readonly default: ModelSelection;\n    readonly routableProviders: readonly string[];\n    readonly groups: readonly ModelProviderGroup[];\n    readonly failures: readonly ModelCatalogFailure[];\n    readonly disabledProviders: readonly string[];\n}',
   },
   {
     name: 'ModelCatalogFailure',
