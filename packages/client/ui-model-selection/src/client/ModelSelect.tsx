@@ -279,7 +279,7 @@ export function ModelSelect(
                   <button type="button" className={css.retry} onClick={reload}>{t('retry')}</button>
                 </div>
               ))}
-              {state.groups.length === 0 && state.disabledProviders.length > 0
+              {state.status === 'ready' && state.groups.length === 0 && state.disabledProviders.length > 0
                 ? (
                   <div className={css.hint}>
                     <span>{t('allDisabledHint')}</span>
