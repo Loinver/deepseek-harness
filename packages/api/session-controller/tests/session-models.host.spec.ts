@@ -682,7 +682,7 @@ describe('Web session model selection', () => {
     }))
     expect(refusedPrompt).toMatchObject({
       ok: false,
-      error: { code: 'model-unavailable', details: { provider: 'deepseek-official', model: 'deepseek-chat' } },
+      error: { code: 'session/model-unavailable', details: { provider: 'deepseek-official', model: 'deepseek-chat' } },
     })
     expect((refusedPrompt as { error: { message: string } }).error.message).toContain('disabled')
 
@@ -691,7 +691,7 @@ describe('Web session model selection', () => {
     }))
     expect(refusedSelection).toMatchObject({
       ok: false,
-      error: { code: 'model-unavailable', details: { provider: 'deepseek-official', model: 'deepseek-reasoner' } },
+      error: { code: 'session/model-unavailable', details: { provider: 'deepseek-official', model: 'deepseek-reasoner' } },
     })
 
     // An enabled provider still selects and prompts normally.

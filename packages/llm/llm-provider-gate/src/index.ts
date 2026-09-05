@@ -13,7 +13,7 @@
 import { Context, Service } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { LlmError } from '@deepseek-ai/dsh-llm'
-import { installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-settings'
+import type {} from '@deepseek-ai/dsh-settings'
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -23,7 +23,7 @@ declare module '@deepseek-ai/cordis' {
 }
 
 /** Settings namespace carrying the user-disabled provider routes. */
-export const LLM_PROVIDER_GATE_SETTINGS_NAMESPACE = settingsNamespace('llm-provider-gate')
+export const LLM_PROVIDER_GATE_SETTINGS_NAMESPACE = 'llm-provider-gate'
 
 /** Stable machine code for a request rejected because its provider is disabled. */
 export const PROVIDER_DISABLED_CODE = 'PROVIDER_DISABLED'
@@ -61,11 +61,13 @@ export class LlmProviderGate extends Service {
     super(ctx, 'llmProviderGate')
     const entry: LlmProviderGateSettings = { disabled: config.disabled ?? [] }
     this.source = () => entry
-    installSettingsSection(ctx, LLM_PROVIDER_GATE_SETTINGS_NAMESPACE, LLM_PROVIDER_GATE_SETTINGS_SCHEMA, entry, {
-      setSource: (current) => { this.source = current },
-      // Consumers re-read the disabled set per request and per catalog build,
-      // so no registration-level fact needs rebuilding on a settings change.
-      onChange: () => {},
+    ctx.inject(['settings'], (settingsCtx) => {
+      settingsCtx.settings.installSection(ctx, LLM_PROVIDER_GATE_SETTINGS_NAMESPACE, LLM_PROVIDER_GATE_SETTINGS_SCHEMA, entry, {
+        setSource: (current) => { this.source = current },
+        // Consumers re-read the disabled set per request and per catalog build,
+        // so no registration-level fact needs rebuilding on a settings change.
+        onChange: () => {},
+      })
     })
     // A disabled route must be rejected before any other `llm/stream` listener
     // (title generation, checkpoints) starts work on the request. The thrown
