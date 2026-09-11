@@ -1,35 +1,42 @@
-// Switch: token-styled on/off control (`role="switch"`). No framework
-// imports; the accessible name and any visible copy stay with the caller.
+// Switch: two-state toggle. `label` is required and has no default, so a render
+// site cannot ship the control without an accessible name.
 
-import type { ButtonHTMLAttributes } from 'react'
 import clsx from 'clsx'
 import css from './Switch.module.css'
 
 /**
- * Render an on/off switch.
- * @param props.checked - whether the switch is on.
- * @param props.label - accessible name (the control renders no visible text).
- * @param props.disabled - blocks interaction and dims the control when set.
- * @param props.onChange - invoked with the requested next state on click.
- * @returns the switch element; native button attributes pass through.
+ * Render a toggle switch.
+ * @param props.checked - the current state; the control is fully controlled.
+ * @param props.onChange - called with the state the click asks for.
+ * @param props.label - localized accessible name, owned by the render site.
+ * @param props.disabled - whether the control refuses input; owners also set it
+ * while a write is in flight, not only when a deployment locks the toggle.
+ * @param props.title - localized hover text, typically why the toggle is locked.
+ * @param props.className - extra class for layout placement.
+ * @returns the switch element.
  */
-export function Switch({ checked, label, disabled, className, onChange, ...rest }: {
+export function Switch({ checked, onChange, label, disabled = false, title, className }: {
   checked: boolean
+  onChange: (next: boolean) => void
   label: string
   disabled?: boolean
+  title?: string | undefined
+  // `| undefined` so a caller can forward an optional class straight through
+  // under exactOptionalPropertyTypes (a CSS-module lookup is string|undefined).
   className?: string | undefined
-  onChange: (next: boolean) => void
-} & Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'checked' | 'label' | 'disabled' | 'className' | 'onChange'>) {
+}) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={checked}
       aria-label={label}
+      title={title}
       disabled={disabled}
-      className={clsx(css.switch, checked ? css.on : css.off, className)}
+      className={clsx(css.switch, className)}
       onClick={() => { onChange(!checked) }}
-      {...rest}
-    />
+    >
+      <span className={css.thumb} />
+    </button>
   )
 }

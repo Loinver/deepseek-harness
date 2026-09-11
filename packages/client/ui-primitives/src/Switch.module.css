@@ -1,17 +1,28 @@
-/* Track color rides the state-success alias on; the neutral interactive fill
- * off. The thumb slides with a fixed-distance transform, so the geometry
- * below (34x20 track, 2px inset, 16px thumb) and the 14px travel stay in sync. */
+/* The on/off appearance keys off aria-checked rather than a parallel class, so
+ * the visual state cannot disagree with the state assistive technology reads.
+ *
+ * The track is a capsule: its radius is half its height, so the corners consume
+ * the whole side and the global superellipse would square the ends off against
+ * the round thumb inside it. `corner-shape: round` opts the track out, the way
+ * every full-round radius does. The corner-shape spec does not catch this one —
+ * it recognizes 50%, 100%, and radii at or above 99px, not a radius that is
+ * full-round only relative to its own box. */
 .switch {
+  box-sizing: border-box;
   position: relative;
-  display: inline-flex;
-  flex: none;
-  width: 34px;
+  flex: 0 0 auto;
+  width: 36px;
   height: 20px;
   padding: 2px;
-  border: none;
+  border: 0;
   border-radius: 10px;
+  corner-shape: round;
+  background: var(--dsw-alias-border-l3);
   cursor: pointer;
-  transition: background-color 160ms ease;
+}
+
+.switch[aria-checked='true'] {
+  background: var(--dsw-alias-brand-primary);
 }
 
 .switch:disabled {
@@ -19,37 +30,21 @@
   opacity: 0.5;
 }
 
-.off {
-  background: var(--dsw-alias-interactive-bg-active);
+.switch:focus-visible {
+  outline: 2px solid var(--dsw-alias-brand-primary);
+  outline-offset: 2px;
 }
 
-.off:hover:not(:disabled) {
-  background: var(--dsw-alias-interactive-bg-hover-accent);
-}
-
-.on {
-  background: var(--dsw-alias-state-success-primary);
-}
-
-.on:hover:not(:disabled) {
-  background: var(--dsw-alias-state-success-secondary);
-}
-
-/* The thumb is the button's own ::before so the click target stays the whole
- * track. Padding supplies the 2px inset; transform supplies the travel. */
-.switch::before {
-  content: '';
-  position: absolute;
-  top: 2px;
-  left: 2px;
+.thumb {
+  display: block;
   width: 16px;
   height: 16px;
-  border-radius: 8px;
-  background: var(--dsw-static-neutral-bluish-00);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-  transition: transform 160ms ease;
+  border-radius: 50%;
+  corner-shape: round;
+  background: var(--dsw-alias-label-primary-foreground);
+  transition: transform 120ms ease;
 }
 
-.on::before {
-  transform: translateX(14px);
+.switch[aria-checked='true'] .thumb {
+  transform: translateX(16px);
 }
